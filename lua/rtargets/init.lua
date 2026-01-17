@@ -1,6 +1,16 @@
 local M = {}
 
-M.config = {}
+M.config = {
+  maps = {
+    tar_make = "<LocalLeader>m",
+    tar_load_everything = "<LocalLeader>le",
+    tar_load = "<LocalLeader>ll",
+    tar_make_interactive = "<LocalLeader>tm",
+    tar_read = "<LocalLeader>tr",
+    tar_create = "<LocalLeader>tw",
+    tar_open = "<LocalLeader>tf",
+  },
+}
 
 local function get_visual_selection()
   local _, ls, cs = unpack(vim.fn.getpos("v"))
@@ -25,7 +35,33 @@ function M.create_file_from_selection()
     -- Exit visual mode after getting the selection
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", true)
   else
-    name = vim.fn.expand("<cword>")
+    -- Normal mode: check for function call
+    local save_cursor = vim.fn.getcurpos()
+    local word = vim.fn.expand("<cword>")
+
+    -- Check if followed by '('
+    vim.cmd("normal! e")
+    local col = vim.fn.col(".")
+    local line = vim.api.nvim_get_current_line()
+    -- Check next char safely
+    if col < #line and string.sub(line, col + 1, col + 1) == "(" then
+      vim.cmd("normal! l") -- on '('
+      local start_pos = vim.fn.getpos(".")
+      vim.cmd("normal! %") -- on ')'
+      local end_pos = vim.fn.getpos(".")
+
+      -- Extract text between start_pos and end_pos (inclusive)
+      local s_row, s_col = start_pos[2] - 1, start_pos[3] - 1
+      local e_row, e_col = end_pos[2] - 1, end_pos[3]
+
+      local lines = vim.api.nvim_buf_get_text(0, s_row, s_col, e_row, e_col, {})
+      local args_text = table.concat(lines, "\n")
+
+      name = word .. args_text
+    else
+      name = word
+    end
+    vim.fn.setpos(".", save_cursor)
   end
 
   if not name or name == "" then
@@ -65,11 +101,32 @@ function M.create_file_from_selection()
     if file then
       file:write(base_name .. "<-function(" .. args .. "){}")
       file:close()
-      vim.notify("Created: R/" .. filename, vim.log.levels.INFO)
+      -- vim.notify("Created: R/" .. filename, vim.log.levels.INFO)
       vim.cmd("edit " .. file_path)
     else
       vim.notify("Failed to create file: " .. file_path, vim.log.levels.ERROR)
     end
+  end
+end
+
+function M.open_target_file()
+  local word = vim.fn.expand("<cword>")
+  if not word or word == "" then
+    vim.notify("No word under cursor", vim.log.levels.WARN)
+    return
+  end
+
+  local project_root = vim.fn.getcwd()
+  local r_dir = project_root .. "/R"
+  local filename = word .. ".R"
+  local file_path = r_dir .. "/" .. filename
+
+  local file = io.open(file_path, "r")
+  if file then
+    io.close()
+    vim.cmd("edit " .. file_path)
+  else
+    vim.notify("File " .. file_path .. " does not exist.", vim.log.levels.WARN)
   end
 end
 
@@ -93,28 +150,48 @@ function M.attach(bufnr)
   end
 
   -- Targets: Make
-  map("<LocalLeader>m", "<Cmd>lua require('r.send').cmd('tar_make()')<CR>", "Targets: Make")
+  if M.config.maps.tar_make then
+    map(M.config.maps.tar_make, "<Cmd>lua require('r.send').cmd('tar_make()')<CR>", "Targets: Make")
+  end
 
   -- Targets: Load Everything
-  map(
-    "<LocalLeader>le",
-    "<Cmd>lua require('r.send').cmd('targets::tar_load_everything()')<CR>",
-    "Targets: Load Everything"
-  )
+  if M.config.maps.tar_load_everything then
+    map(
+      M.config.maps.tar_load_everything,
+      "<Cmd>lua require('r.send').cmd('targets::tar_load_everything()')<CR>",
+      "Targets: Load Everything"
+    )
+  end
 
   -- Targets: Interactive Load
-  map("<LocalLeader>ll", "<Cmd>lua require('r.run').action('tar_load')<CR>", "Targets: Interactive Load")
+  if M.config.maps.tar_load then
+    map(M.config.maps.tar_load, "<Cmd>lua require('r.run').action('tar_load')<CR>", "Targets: Interactive Load")
+  end
 
   -- Targets: Interactive Make
-  map("<LocalLeader>tm", "<Cmd>lua require('r.run').action('tar_make')<CR>", "Targets: Interactive Make")
+  if M.config.maps.tar_make_interactive then
+    map(
+      M.config.maps.tar_make_interactive,
+      "<Cmd>lua require('r.run').action('tar_make')<CR>",
+      "Targets: Interactive Make"
+    )
+  end
 
   -- Targets: Interactive Read
-  map("<LocalLeader>tr", "<Cmd>lua require('r.run').action('tar_read')<CR>", "Targets: Interactive Read")
+  if M.config.maps.tar_read then
+    map(M.config.maps.tar_read, "<Cmd>lua require('r.run').action('tar_read')<CR>", "Targets: Interactive Read")
+  end
 
-  local create_cmd = "<Cmd>lua require('rtargets').create_file_from_selection()<CR>"
-  map("<LocalLeader>tc", create_cmd, "Targets: Create File from Selection", { "n", "x" })
+  -- Targets: Create File from Selection
+  if M.config.maps.tar_create then
+    local create_cmd = "<Cmd>lua require('rtargets').create_file_from_selection()<CR>"
+    map(M.config.maps.tar_create, create_cmd, "Targets: Create File from Selection", { "n", "x" })
+  end
 
-  print("Targets.R keymaps attached.")
+  -- Targets: Open Target File
+  if M.config.maps.tar_open then
+    map(M.config.maps.tar_open, "<Cmd>lua require('rtargets').open_target_file()<CR>", "Targets: Open Target File")
+  end
 end
 
 -- Setup function: initializes the plugin and sets up autocommands
