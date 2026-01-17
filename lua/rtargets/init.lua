@@ -34,8 +34,12 @@ function M.create_file_from_selection()
   end
   name = name:gsub("[\n\r]", "") -- Remove newlines
 
-  if not name:match("%.[Rr]$") then
-    name = name .. ".R"
+  local base_name, args = name:match("^([^%(]+)%((.*)%)")
+  if not base_name then
+    base_name = name:gsub("%.[Rr]$", "")
+    args = ""
+  else
+    base_name = base_name:gsub("%.[Rr]$", "")
   end
 
   local project_root = vim.fn.getcwd()
@@ -48,7 +52,8 @@ function M.create_file_from_selection()
     return
   end
 
-  local file_path = r_dir .. "/" .. name
+  local filename = base_name .. ".R"
+  local file_path = r_dir .. "/" .. filename
   local file = io.open(file_path, "r")
 
   if file then
@@ -58,8 +63,9 @@ function M.create_file_from_selection()
   else
     file = io.open(file_path, "w")
     if file then
+      file:write(base_name .. "<-function(" .. args .. "){}")
       file:close()
-      vim.notify("Created: R/" .. name, vim.log.levels.INFO)
+      vim.notify("Created: R/" .. filename, vim.log.levels.INFO)
       vim.cmd("edit " .. file_path)
     else
       vim.notify("Failed to create file: " .. file_path, vim.log.levels.ERROR)
