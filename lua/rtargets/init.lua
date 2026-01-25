@@ -208,6 +208,12 @@ function M.setup(opts)
     end,
     group = group,
   })
+
+  -- Register nvim-cmp source if cmp is available
+  local has_cmp, cmp = pcall(require, "cmp")
+  if has_cmp then
+    cmp.register_source("rtargets", require("rtargets.cmp").new())
+  end
 end
 
 return M
