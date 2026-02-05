@@ -6,28 +6,24 @@ function source.new()
   return setmetatable({}, { __index = source })
 end
 
-function source:is_available()
+function source:enabled()
   return common.is_available()
-end
-
-function source:get_debug_name()
-  return "rtargets"
 end
 
 function source:get_trigger_characters()
   return { "(", ",", '"', "'" }
 end
 
-function source:complete(params, callback)
-  local cursor_before_line = params.context.cursor_before_line
+function source:get_completions(ctx, callback)
+  local cursor_before_line = ctx.line:sub(1, ctx.cursor[2])
   -- Check if we are inside a tar_read or tar_load call
   if not cursor_before_line:match("tar_read%s*%(") and not cursor_before_line:match("tar_load%s*%(") then
-    callback()
+    callback({ items = {} })
     return
   end
 
   local items = common.get_items()
-  callback(items)
+  callback({ items = items })
 end
 
 return source
