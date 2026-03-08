@@ -8,7 +8,7 @@ Helpers for workging with the targets pipelines in neovim.
 
 ```lua
 {
-  'michaelschmidt/rtargets.nvim',
+  'mschmidty/rtargets.nvim',
   ft = { "r", "rmd", "quarto" },
   opts = {},
 }
