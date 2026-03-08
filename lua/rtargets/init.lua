@@ -9,6 +9,7 @@ M.config = {
     tar_read = "<LocalLeader>tr",
     tar_create = "<LocalLeader>tw",
     tar_open = "<LocalLeader>tf",
+    tar_open_targets = "<leader>tt",
   },
 }
 
@@ -130,6 +131,16 @@ function M.open_target_file()
   end
 end
 
+function M.open_targets_file()
+  local project_root = vim.fn.getcwd()
+  local file_path = project_root .. "/_targets.R"
+  if vim.fn.filereadable(file_path) == 1 then
+    vim.cmd("edit " .. file_path)
+  else
+    vim.notify("_targets.R not found in " .. project_root, vim.log.levels.WARN)
+  end
+end
+
 -- Attach function: sets up keymaps for a given buffer
 function M.attach(bufnr)
   -- Safely check if 'R' module (R.nvim) is available
@@ -191,6 +202,15 @@ function M.attach(bufnr)
   -- Targets: Open Target File
   if M.config.maps.tar_open then
     map(M.config.maps.tar_open, "<Cmd>lua require('rtargets').open_target_file()<CR>", "Targets: Open Target File")
+  end
+
+  -- Targets: Open _targets.R
+  if M.config.maps.tar_open_targets then
+    map(
+      M.config.maps.tar_open_targets,
+      "<Cmd>lua require('rtargets').open_targets_file()<CR>",
+      "Targets: Open _targets.R"
+    )
   end
 end
 

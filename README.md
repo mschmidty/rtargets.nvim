@@ -18,7 +18,7 @@ Helpers for workging with the targets pipelines in neovim.
 
 ```lua
 use {
-  'michaelschmidt/rtargets.nvim',
+  'mschmidty/rtargets.nvim',
   config = function()
     require('rtargets').setup({})
   end
@@ -29,11 +29,16 @@ use {
 
 Keymaps for common tasks:
 
-- Run the current target under the cursor with `<leader>tm`
-- Make the entire pipeline with `<leader>m`
-- Load target under the cursor with `<leader>ll`
-- Take target function name under cursor, create a new file in `R/` with that name, and open it with `<leader>tw`. A function with the current arguments in the targets function will be written to the new file.
-- Go to target function under cursor from the \_targets.R file in the R/ folder with `<leader>tf`.
+- Run the current target under the cursor with `<LocalLeader>tm`
+- Make the entire pipeline with `<LocalLeader>m`
+- Load everything with `<LocalLeader>le`
+- Load target under the cursor with `<LocalLeader>ll`
+- Read target under the cursor with `<LocalLeader>tr`
+- Take target function name under cursor, create a new file in `R/` with that name, and open it with `<LocalLeader>tw`. A function with the current arguments in the targets function will be written to the new file.
+- Go to target function under cursor from the `_targets.R` file in the `R/` folder with `<LocalLeader>tf`.
+- Open the `_targets.R` file in the root of the project with `<leader>tt`.
+
+_Note: Most default keymaps use `<LocalLeader>`, while opening the targets file uses `<leader>`._
 
 ## Completion
 
