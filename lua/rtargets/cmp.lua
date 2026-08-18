@@ -15,7 +15,7 @@ function source:get_debug_name()
 end
 
 function source:get_trigger_characters()
-  return { "(", ",", '"', "'" }
+  return { "(" }
 end
 
 function source:complete(params, callback)
