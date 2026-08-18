@@ -20,13 +20,13 @@ end
 
 function source:complete(params, callback)
   local cursor_before_line = params.context.cursor_before_line
-  -- Check if we are inside a tar_read or tar_load call
-  if not cursor_before_line:match("tar_read%s*%(") and not cursor_before_line:match("tar_load%s*%(") then
+  if not common.is_target_context(cursor_before_line) then
     callback()
     return
   end
 
-  local items = common.get_items()
+  local bufnr = params.context and params.context.bufnr
+  local items = common.get_items(bufnr)
   callback(items)
 end
 

@@ -13,6 +13,19 @@ M.config = {
   },
 }
 
+local common = require("rtargets.common")
+
+local function get_project_root()
+  local targets_dir = common.find_targets_dir()
+  if targets_dir then
+    local root = targets_dir:gsub("/_targets$", "")
+    if root ~= "" then
+      return root
+    end
+  end
+  return vim.fn.getcwd()
+end
+
 local function get_visual_selection()
   local _, ls, cs = unpack(vim.fn.getpos("v"))
   local _, le, ce = unpack(vim.fn.getpos("."))
@@ -79,7 +92,7 @@ function M.create_file_from_selection()
     base_name = base_name:gsub("%.[Rr]$", "")
   end
 
-  local project_root = vim.fn.getcwd()
+  local project_root = get_project_root()
   local r_dir = project_root .. "/R"
 
   local success = vim.fn.mkdir(r_dir, "p")
@@ -94,16 +107,16 @@ function M.create_file_from_selection()
   local file = io.open(file_path, "r")
 
   if file then
-    io.close()
+    file:close()
     vim.notify("File " .. file_path .. " already exists.", vim.log.levels.WARN)
-    vim.cmd("edit " .. file_path)
+    vim.cmd("edit " .. vim.fn.fnameescape(file_path))
   else
     file = io.open(file_path, "w")
     if file then
       file:write(base_name .. "<-function(" .. args .. "){}")
       file:close()
       -- vim.notify("Created: R/" .. filename, vim.log.levels.INFO)
-      vim.cmd("edit " .. file_path)
+      vim.cmd("edit " .. vim.fn.fnameescape(file_path))
     else
       vim.notify("Failed to create file: " .. file_path, vim.log.levels.ERROR)
     end
@@ -117,25 +130,25 @@ function M.open_target_file()
     return
   end
 
-  local project_root = vim.fn.getcwd()
+  local project_root = get_project_root()
   local r_dir = project_root .. "/R"
   local filename = word .. ".R"
   local file_path = r_dir .. "/" .. filename
 
   local file = io.open(file_path, "r")
   if file then
-    io.close()
-    vim.cmd("edit " .. file_path)
+    file:close()
+    vim.cmd("edit " .. vim.fn.fnameescape(file_path))
   else
     vim.notify("File " .. file_path .. " does not exist.", vim.log.levels.WARN)
   end
 end
 
 function M.open_targets_file()
-  local project_root = vim.fn.getcwd()
+  local project_root = get_project_root()
   local file_path = project_root .. "/_targets.R"
   if vim.fn.filereadable(file_path) == 1 then
-    vim.cmd("edit " .. file_path)
+    vim.cmd("edit " .. vim.fn.fnameescape(file_path))
   else
     vim.notify("_targets.R not found in " .. project_root, vim.log.levels.WARN)
   end
@@ -143,14 +156,6 @@ end
 
 -- Attach function: sets up keymaps for a given buffer
 function M.attach(bufnr)
-  -- Safely check if 'R' module (R.nvim) is available
-  local r_ok, _ = pcall(require, "r")
-  if not r_ok then
-    -- If R.nvim isn't found, we notify the user.
-    vim.notify("rtargets.nvim: R.nvim (module 'r') not found. Keymaps not attached.", vim.log.levels.WARN)
-    return
-  end
-
   local opts = { buffer = bufnr, silent = true }
 
   -- Helper for setting keymaps
@@ -160,37 +165,55 @@ function M.attach(bufnr)
     vim.keymap.set(mode, keys, command, specific_opts)
   end
 
+  local function send_cmd(cmd)
+    local r_ok, r_send = pcall(require, "r.send")
+    if r_ok then
+      r_send.cmd(cmd)
+    else
+      vim.notify("rtargets.nvim: R.nvim (module 'r.send') not found.", vim.log.levels.WARN)
+    end
+  end
+
+  local function run_action(action)
+    local r_ok, r_run = pcall(require, "r.run")
+    if r_ok then
+      r_run.action(action)
+    else
+      vim.notify("rtargets.nvim: R.nvim (module 'r.run') not found.", vim.log.levels.WARN)
+    end
+  end
+
   -- Targets: Make
   if M.config.maps.tar_make then
-    map(M.config.maps.tar_make, "<Cmd>lua require('r.send').cmd('tar_make()')<CR>", "Targets: Make")
+    map(M.config.maps.tar_make, function() send_cmd("tar_make()") end, "Targets: Make")
   end
 
   -- Targets: Load Everything
   if M.config.maps.tar_load_everything then
     map(
       M.config.maps.tar_load_everything,
-      "<Cmd>lua require('r.send').cmd('targets::tar_load_everything()')<CR>",
+      function() send_cmd("targets::tar_load_everything()") end,
       "Targets: Load Everything"
     )
   end
 
   -- Targets: Interactive Load
   if M.config.maps.tar_load then
-    map(M.config.maps.tar_load, "<Cmd>lua require('r.run').action('tar_load')<CR>", "Targets: Interactive Load")
+    map(M.config.maps.tar_load, function() run_action("tar_load") end, "Targets: Interactive Load")
   end
 
   -- Targets: Interactive Make
   if M.config.maps.tar_make_interactive then
     map(
       M.config.maps.tar_make_interactive,
-      "<Cmd>lua require('r.run').action('tar_make')<CR>",
+      function() run_action("tar_make") end,
       "Targets: Interactive Make"
     )
   end
 
   -- Targets: Interactive Read
   if M.config.maps.tar_read then
-    map(M.config.maps.tar_read, "<Cmd>lua require('r.run').action('tar_read')<CR>", "Targets: Interactive Read")
+    map(M.config.maps.tar_read, function() run_action("tar_read") end, "Targets: Interactive Read")
   end
 
   -- Targets: Create File from Selection

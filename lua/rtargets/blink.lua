@@ -16,13 +16,12 @@ end
 
 function source:get_completions(ctx, callback)
   local cursor_before_line = ctx.line:sub(1, ctx.cursor[2])
-  -- Check if we are inside a tar_read or tar_load call
-  if not cursor_before_line:match("tar_read%s*%(") and not cursor_before_line:match("tar_load%s*%(") then
+  if not common.is_target_context(cursor_before_line) then
     callback({ items = {} })
     return
   end
 
-  local items = common.get_items()
+  local items = common.get_items(ctx.bufnr)
   callback({ items = items })
 end
 
