@@ -42,21 +42,33 @@ local function search_upwards_for_targets(start_dir)
   return nil
 end
 
+local buf_dir_cache = {}
+
+local function get_buf_dir(bufnr)
+  if buf_dir_cache[bufnr] then
+    return buf_dir_cache[bufnr]
+  end
+  local buf_name = vim.api.nvim_buf_get_name(bufnr)
+  local dir
+  if buf_name and buf_name ~= "" then
+    dir = vim.fn.fnamemodify(buf_name, ":h")
+  else
+    dir = vim.fn.getcwd()
+  end
+  dir = normalize_path(dir) or ""
+  buf_dir_cache[bufnr] = dir
+  return dir
+end
+
 function M.clear_cache()
   targets_dir_cache = {}
   items_cache = {}
+  buf_dir_cache = {}
 end
 
 function M.find_targets_dir(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
-  local buf_name = vim.api.nvim_buf_get_name(bufnr)
-  local start_dir
-  if buf_name and buf_name ~= "" then
-    start_dir = vim.fn.fnamemodify(buf_name, ":h")
-  else
-    start_dir = vim.fn.getcwd()
-  end
-  start_dir = normalize_path(start_dir) or ""
+  local start_dir = get_buf_dir(bufnr)
 
   local now = uv.now()
   local cached = targets_dir_cache[start_dir]
@@ -82,46 +94,45 @@ function M.is_available(bufnr)
   return M.find_targets_dir(bufnr) ~= nil
 end
 
+local BYTE_OPEN_PAREN = 40  -- '('
+local BYTE_CLOSE_PAREN = 41 -- ')'
+local BYTE_SEMICOLON = 59   -- ';'
+
 function M.is_target_context(line_prefix)
   if not line_prefix or line_prefix == "" then
     return false
   end
 
-  -- Fast exit if 'tar_' is not anywhere in the line prefix
-  if not line_prefix:find("tar_") then
-    return false
-  end
-
-  local stack = {}
   local len = #line_prefix
-  local in_string = nil
-  local i = 1
+  local paren_depth = 0
+  local i = len
 
-  while i <= len do
-    local char = line_prefix:sub(i, i)
-    if in_string then
-      if char == in_string and line_prefix:sub(i - 1, i - 1) ~= "\\" then
-        in_string = nil
-      end
-    elseif char == '"' or char == "'" or char == "`" then
-      in_string = char
-    elseif char == "(" then
-      table.insert(stack, i)
-    elseif char == ")" then
-      if #stack > 0 then
-        table.remove(stack)
-      end
-    end
-    i = i + 1
-  end
+  -- Fast exit: scan backwards from cursor using byte values (zero allocations)
+  while i >= 1 do
+    local b = string.byte(line_prefix, i)
 
-  for s = #stack, 1, -1 do
-    local open_pos = stack[s]
-    local prefix_before_open = line_prefix:sub(1, open_pos - 1)
-    local fn_name = prefix_before_open:match("([%w_:]+)%s*$")
-    if fn_name and (fn_name:match("^tar_") or fn_name:match("^targets::tar_")) then
-      return true
+    if b == BYTE_CLOSE_PAREN then
+      paren_depth = paren_depth + 1
+    elseif b == BYTE_OPEN_PAREN then
+      if paren_depth > 0 then
+        paren_depth = paren_depth - 1
+      else
+        -- Found an unclosed '(' wrapping the cursor position
+        local prefix = line_prefix:sub(1, i - 1)
+        local fn_name = prefix:match("([%w_:]+)%s*$")
+        if fn_name and (fn_name:match("^tar_") or fn_name:match("^targets::tar_")) then
+          return true
+        end
+        -- Allow wrapper functions inside tar_load / tar_read (e.g. c(...), list(...))
+        if fn_name and not (fn_name == "c" or fn_name == "list" or fn_name == "vector" or fn_name == "vars") then
+          return false
+        end
+      end
+    elseif b == BYTE_SEMICOLON then
+      break
     end
+
+    i = i - 1
   end
 
   return false
