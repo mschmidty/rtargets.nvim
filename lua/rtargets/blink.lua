@@ -11,7 +11,7 @@ function source:enabled()
 end
 
 function source:get_trigger_characters()
-  return { "(", ",", '"', "'" }
+  return { "(" }
 end
 
 function source:get_completions(ctx, callback)
